@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Student Enrollment Form</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet"
+              href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+        <script src="https://login2explore.com/jpdb/resources/js/0.0.3/jpdb-commons.js"></script>
+
+    </head>
+    <body>
+        <div class="container">
+            <h2>Student Enrollment Form</h2>
+            <form id="studentForm" method="post">
+                <div class="form-group">
+                    <label for="rollNo">Roll No:</label>
+                    <input type="text" class="form-control" name="rollNo" id="rollNo"
+                           placeholder="Enter Roll No" onchange="getStudent();" required>
+                </div>
+                <div class="form-group">
+                    <label for="fullName">Full Name:</label>
+                    <input type="text" class="form-control" id="fullName"
+                           placeholder="Enter Full Name" name="fullName" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="class">Class:</label>
+                    <input type="text" class="form-control" id="class"
+                           placeholder="Enter Class" name="class" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="birthDate">Birth Date:</label>
+                    <input type="date" class="form-control" id="birthDate"
+                           name="birthDate" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="address">Address:</label>
+                    <input type="text" class="form-control" id="address"
+                           placeholder="Enter Address" name="address" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="enrollmentDate">Enrollment Date:</label>
+                    <input type="date" class="form-control" id="enrollmentDate"
+                           name="enrollmentDate" disabled>
+                </div>
+                <div class="form-group text-center">
+                    <button type="button" class="btn btn-lg btn-primary" id="save"
+                            onclick="saveData();" disabled>Save</button>
+                    <button type="button" class="btn btn-lg btn-primary" id="update"
+                            onclick="updateData();" disabled>Update</button>
+                    <button type="button" class="btn btn-lg btn-primary" id="reset"
+                            onclick="resetForm();" disabled>Reset</button>
+                </div>
+            </form>
+        </div>
+       <script>
+    var jpdbBaseURL = "http://api.login2explore.com:5577";
+    var jpdbIRL = "/api/irl";
+    var jpdbIML = "/api/iml";
+    var schoolDBName = "SCHOOL-DB";
+    var studentRelationName = "STUDENT-TABLE";
+    var connToken = "90934426|-31949230663027985|90956875";
+
+    $(document).ready(function () {
+        $("#rollNo").focus();
+    });
+
+    function disableAllFieldsExceptRollNo(disabled) {
+        $("#fullName").prop("disabled", disabled);
+        $("#class").prop("disabled", disabled);
+        $("#birthDate").prop("disabled", disabled);
+        $("#address").prop("disabled", disabled);
+        $("#enrollmentDate").prop("disabled", disabled);
+    }
+
+    function resetForm() {
+        $("#studentForm").trigger("reset"); // Clear all form fields
+        $("#rollNo").prop("disabled", false); // Enable roll number input
+        disableAllFieldsExceptRollNo(true); // Disable all other fields
+        $("#save").prop("disabled", true); // Disable Save button
+        $("#update").prop("disabled", true); // Disable Update button
+        $("#reset").prop("disabled", true); // Disable Reset button
+        $("#rollNo").focus(); // Focus on roll number input
+    }
+
+    function saveData() {
+        var jsonStrObj = validateFormData(); // Validate and get data
+        if (jsonStrObj === "") {
+            return; // If validation fails, exit function
+        }
+
+        var putRequest = createPUTRequest(connToken, jsonStrObj, schoolDBName, studentRelationName);
+        jQuery.ajaxSetup({ async: false });
+        var resJsonObj = executeCommandAtGivenBaseUrl(putRequest, jpdbBaseURL, jpdbIML);
+        jQuery.ajaxSetup({ async: true });
+
+        if (resJsonObj.status === 200) {
+            alert("Data Saved Successfully");
+        } else {
+            alert("Error while saving data");
+        }
+        resetForm(); // Reset form after saving data
+    }
+
+    function updateData() {
+        var jsonStrObj = validateFormData(); // Validate and get data
+        if (jsonStrObj === "") {
+            return; // If validation fails, exit function
+        }
+
+        var updateRequest = createUPDATERecordRequest(connToken, jsonStrObj, schoolDBName, studentRelationName, localStorage.getItem("recno"));
+        jQuery.ajaxSetup({ async: false });
+        var resJsonObj = executeCommandAtGivenBaseUrl(updateRequest, jpdbBaseURL, jpdbIML);
+        jQuery.ajaxSetup({ async: true });
+
+        if (resJsonObj.status === 200) {
+            alert("Data Updated Successfully");
+        } else {
+            alert("Error while updating data");
+        }
+        resetForm(); // Reset form after updating data
+    }
+
+    function getStudent() {
+        var rollNo = $("#rollNo").val();
+        if (rollNo === "") {
+            resetForm(); // If roll number is empty, reset form
+            return;
+        }
+
+        var jsonObj = {
+            rollNo: rollNo
+        };
+        var getRequest = createGET_BY_KEYRequest(connToken, schoolDBName, studentRelationName, JSON.stringify(jsonObj));
+        jQuery.ajaxSetup({ async: false });
+        var resJsonObj = executeCommandAtGivenBaseUrl(getRequest, jpdbBaseURL, jpdbIRL);
+        jQuery.ajaxSetup({ async: true });
+
+        if (resJsonObj.status === 400) {
+            $("#save").prop("disabled", false); // Enable Save button
+            $("#reset").prop("disabled", false); // Enable Reset button
+            disableAllFieldsExceptRollNo(false); // Enable all fields
+            $("#fullName").focus(); // Focus on full name field
+        } else if (resJsonObj.status === 200) {
+            $("#rollNo").prop("disabled", true); // Disable roll number input
+            fillData(resJsonObj); // Fill data from response
+            $("#update").prop("disabled", false); // Enable Update button
+            $("#reset").prop("disabled", false); // Enable Reset button
+            disableAllFieldsExceptRollNo(false); // Enable all fields
+            $("#fullName").focus(); // Focus on full name field
+        }
+    }
+
+    function fillData(jsonObj) {
+        if (jsonObj.status === 200) {
+            saveRecNo2LS(jsonObj); // Save record number to local storage
+            var data = JSON.parse(jsonObj.data).record; // Parse data
+            $("#fullName").val(data.fullName); // Fill full name field
+            $("#class").val(data.class); // Fill class field
+            $("#birthDate").val(data.birthDate); // Fill birth date field
+            $("#address").val(data.address); // Fill address field
+            $("#enrollmentDate").val(data.enrollmentDate); // Fill enrollment date field
+        }
+    }
+
+    function validateFormData() {
+        var rollNo = $("#rollNo").val();
+        if (rollNo === "") {
+            alert("Roll No Required");
+            $("#rollNo").focus();
+            return "";
+        }
+        var fullName = $("#fullName").val();
+        if (fullName === "") {
+            alert("Full Name Required");
+            $("#fullName").focus();
+            return "";
+        }
+        var className = $("#class").val();
+        if (className === "") {
+            alert("Class Required");
+            $("#class").focus();
+            return "";
+        }
+        var birthDate = $("#birthDate").val();
+        if (birthDate === "") {
+            alert("Birth Date Required");
+            $("#birthDate").focus();
+            return "";
+        }
+        var address = $("#address").val();
+        if (address === "") {
+            alert("Address Required");
+            $("#address").focus();
+            return "";
+        }
+        var enrollmentDate = $("#enrollmentDate").val();
+        if (enrollmentDate === "") {
+            alert("Enrollment Date Required");
+            $("#enrollmentDate").focus();
+            return "";
+        }
+
+        var jsonStrObj = {
+            rollNo: rollNo,
+            fullName: fullName,
+            class: className,
+            birthDate: birthDate,
+            address: address,
+            enrollmentDate: enrollmentDate
+        };
+        return JSON.stringify(jsonStrObj); // Return JSON object as a string
+    }
+
+    function saveRecNo2LS(jsonObj) {
+        var lvData = JSON.parse(jsonObj.data); // Parse response data
+        localStorage.setItem("recno", lvData.rec_no); // Save record number to local storage
+    }
+</script>
+
+    </body>
+</html>
